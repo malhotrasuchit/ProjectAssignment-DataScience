@@ -1,0 +1,129 @@
+---
+title: "Practical Machine Learning Course Project"
+date: "May 15, 2018"
+output: github_document
+---
+
+##Overview
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset)."
+
+##Data
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. The information has been generously provided for use use in this cousera course by the authors, Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. They have allowed the use of their paper "Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+The goal of this project is to build a machine learning algorithm to predict activity quality (classe) from activity monitors.
+
+##Choosing a prediction model
+
+Steps Taken
+    - Tidy data. Remove columns with little/no data.
+    - Create Training and test data from traing data for cross validation checking
+    - Trial 3 methods Random Forrest, Gradient boosted model and Linear discriminant analysis
+    - Fine tune model through combinations of above methods, reduction of input variables or similar. The fine tuning will take into account accuracy first and speed of analysis second.
+
+```{r}
+library(caret)
+```
+
+###Load data
+    - Load data.
+    - Remove "#DIV/0!", replace with an NA value.
+
+```{r}
+# load data
+train <- read.csv("pml-training.csv", na.strings=c("#DIV/0!"), row.names = 1)
+test <- read.csv("pml-testing.csv", na.strings=c("#DIV/0!"), row.names = 1)
+```
+
+##Preprocessing
+### Partitioning the training set
+
+We separate our training data into a training set and a validation set so that we can validate our model.
+
+```{r}
+set.seed(123456)
+trainset <- createDataPartition(train$classe, p = 0.8, list = FALSE)
+Training <- train[trainset, ]
+Validation <- train[-trainset, ]
+```
+
+### Feature Selection
+
+First we clean up near zero variance features, columns with missing values and descriptive fields.
+
+```{r}
+# exclude near zero variance features
+nzvcol <- nearZeroVar(Training)
+Training <- Training[, -nzvcol]
+
+# exclude columns with m40% ore more missing values exclude descriptive
+# columns like name etc
+cntlength <- sapply(Training, function(x) {
+    sum(!(is.na(x) | x == ""))
+})
+nullcol <- names(cntlength[cntlength < 0.6 * length(Training$classe)])
+descriptcol <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", 
+    "cvtd_timestamp", "new_window", "num_window")
+excludecols <- c(descriptcol, nullcol)
+Training <- Training[, !names(Training) %in% excludecols]
+```
+
+## Train Model
+
+We will use random forest as our model as implemented in the randomForest package by Breiman's random forest algorithm (based on Breiman and Cutler's original Fortran code) for classification and regression.
+
+```{r}
+library(randomForest)
+library(e1071)
+```
+
+```{r}
+rfModel <- randomForest(classe ~ ., data = Training, importance = TRUE, ntrees = 10)
+```
+
+##Model Validation
+
+Let us now test our model performance on the training set itself and the cross validation set.
+
+###Training set accuracy
+```{r}
+ptraining <- predict(rfModel, Training)
+print(confusionMatrix(ptraining, Training$classe))
+```
+
+Obviously our model performs excellent against the training set, but we need to cross validate the performance against the held out set and see if we have avoided overfitting.
+
+### Validation set accuracy (Out-of-Sample)
+```{r}
+pvalidation <- predict(rfModel, Validation)
+confusionMatrix(pvalidation, Validation$classe)
+```
+
+The cross validation accuracy is 99.5% and the out-of-sample error is therefore 0.5% so our model performs rather good.
+
+##Apply to final test set
+
+Finally, we apply our model to the final test data. Upon submission all predictions were correct! 
+
+```{r}
+ptest <- predict(rfModel, test)
+ptest
+```
+
+We then save the output to files according to instructions and post it to the submission page.
+
+```{r}
+answers <- as.vector(ptest)
+
+pml_write_files = function(x) {
+    n = length(x)
+    for (i in 1:n) {
+        filename = paste0("problem_id_", i, ".txt")
+        write.table(x[i], file = filename, quote = FALSE, row.names = FALSE, 
+            col.names = FALSE)
+    }
+}
+
+pml_write_files(answers)
+```
+
