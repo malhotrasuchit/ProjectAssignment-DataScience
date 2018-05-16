@@ -1,0 +1,50 @@
+---
+title: "Interactive Data Mapping using Leafleat - Data Products"
+date: "May 16, 2018"
+output: html_document
+---
+
+##Peer-graded Assignment: R Markdown and Leaflet
+
+Create a web page using R Markdown that features a map created with Leaflet.
+
+Host your webpage on either GitHub Pages, RPubs, or NeoCities.
+
+Your webpage must contain the date that you created the document, and it must contain a map created with Leaflet. We would love to see you show off your creativity
+
+##Solution
+
+Load Leaflet library
+```{r}
+library(leaflet)
+```
+
+By accessing the Open Data NYC api we can look at art museum locations in New York City.
+
+```{r}
+library(jsonlite)
+data <- fromJSON("https://data.cityofnewyork.us/resource/43hw-uvdj.json", flatten = TRUE)
+```
+
+``` {r}
+artLatLong <- data.frame(
+  lat = unlist(lapply(data$the_geom.coordinates, `[[`, 2)),
+  lng = unlist(lapply(data$the_geom.coordinates, `[[`, 1))
+)
+
+artIcons <- makeIcon(
+  iconUrl = "photo.png",
+  iconWidth = 35*215/230, iconHeight = 35,
+  iconAnchorX = 35*215/230/2, iconAnchorY = 35
+)
+
+artSites <- paste("<a href='", data$url, "'>",data$name,"</a>" ,sep = "")
+```
+
+## May 16, 2018
+###Map of Art Museums in NYC
+``` {r}
+artLatLong %>% leaflet() %>% addTiles() %>%
+addMarkers(icon=artIcons, popup = artSites)
+```
+
