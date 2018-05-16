@@ -14,8 +14,8 @@ The data for this project come from this source: <http://groupware.les.inf.puc-r
 
 The goal of this project is to build a machine learning algorithm to predict activity quality (classe) from activity monitors.
 
-Choosing a prediction model
----------------------------
+Choose a prediction model
+-------------------------
 
 Steps Taken - Tidy data. Remove columns with little/no data. - Create Training and test data from traing data for cross validation checking - Trial 3 methods Random Forrest, Gradient boosted model and Linear discriminant analysis - Fine tune model through combinations of above methods, reduction of input variables or similar. The fine tuning will take into account accuracy first and speed of analysis second.
 
@@ -34,53 +34,52 @@ library(caret)
 ### Load data
 
     - Load data.
-    - Remove "#DIV/0!", replace with an NA value.
+    - Remove "#DIV/0!" errors and replace with an NA value.
 
 ``` r
 # load data
-train <- read.csv("pml-training.csv", na.strings=c("#DIV/0!"), row.names = 1)
-test <- read.csv("pml-testing.csv", na.strings=c("#DIV/0!"), row.names = 1)
+trnData <- read.csv("pml-training.csv", na.strings=c("#DIV/0!"), row.names = 1)
+tstData <- read.csv("pml-testing.csv", na.strings=c("#DIV/0!"), row.names = 1)
 ```
 
-Preprocessing
--------------
+Perform Pre-processing
+----------------------
 
-### Partitioning the training set
+### Partition the training set
 
 We separate our training data into a training set and a validation set so that we can validate our model.
 
 ``` r
 set.seed(123456)
-trainset <- createDataPartition(train$classe, p = 0.8, list = FALSE)
-Training <- train[trainset, ]
-Validation <- train[-trainset, ]
+trainSet <- createDataPartition(trnData$classe, p = 0.8, list = FALSE)
+trainingData <- trnData[trainSet, ]
+validationData <- trnData[-trainSet, ]
 ```
 
-### Feature Selection
+### Perofrom Feature Selection
 
-First we clean up near zero variance features, columns with missing values and descriptive fields.
+Firstly clean up near zero variance features and columns with missing values and descriptive fields.
 
 ``` r
 # exclude near zero variance features
-nzvcol <- nearZeroVar(Training)
-Training <- Training[, -nzvcol]
+nonZeroVar <- nearZeroVar(trainingData)
+trainingData <- trainingData[, -nonZeroVar]
 
-# exclude columns with m40% ore more missing values exclude descriptive
-# columns like name etc
-cntlength <- sapply(Training, function(x) {
+# exclude columns with 40% ore more missing values and exclude descriptive columns like name etc
+dataLength <- sapply(trainingData, function(x) {
     sum(!(is.na(x) | x == ""))
 })
-nullcol <- names(cntlength[cntlength < 0.6 * length(Training$classe)])
-descriptcol <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", 
+colNull <- names(dataLength[dataLength < 0.6 * length(trainingData$classe)])
+colDescription <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", 
     "cvtd_timestamp", "new_window", "num_window")
-excludecols <- c(descriptcol, nullcol)
-Training <- Training[, !names(Training) %in% excludecols]
+excludeColumns <- c(colDescription, colNull)
+trainingData <- trainingData[, !names(trainingData) %in% excludeColumns]
 ```
 
 Train Model
 -----------
 
-We will use random forest as our model as implemented in the randomForest package by Breiman's random forest algorithm (based on Breiman and Cutler's original Fortran code) for classification and regression.
+We will use random forest as our model from randomForest package for classification and regression.
 
 ``` r
 library(randomForest)
@@ -106,7 +105,7 @@ library(e1071)
     ## Warning: package 'e1071' was built under R version 3.4.4
 
 ``` r
-rfModel <- randomForest(classe ~ ., data = Training, importance = TRUE, ntrees = 10)
+RdmForstModel <- randomForest(classe ~ ., data = trainingData, importance = TRUE, ntrees = 10)
 ```
 
 Model Validation
@@ -117,8 +116,8 @@ Let us now test our model performance on the training set itself and the cross v
 ### Training set accuracy
 
 ``` r
-ptraining <- predict(rfModel, Training)
-print(confusionMatrix(ptraining, Training$classe))
+predictTrainingSet <- predict(RdmForstModel, trainingData)
+print(confusionMatrix(predictTrainingSet, trainingData$classe))
 ```
 
     ## Confusion Matrix and Statistics
@@ -158,8 +157,8 @@ Obviously our model performs excellent against the training set, but we need to 
 ### Validation set accuracy (Out-of-Sample)
 
 ``` r
-pvalidation <- predict(rfModel, Validation)
-confusionMatrix(pvalidation, Validation$classe)
+predictValidationSet <- predict(RdmForstModel, validationData)
+confusionMatrix(predictValidationSet, validationData$classe)
 ```
 
     ## Confusion Matrix and Statistics
@@ -194,16 +193,16 @@ confusionMatrix(pvalidation, Validation$classe)
     ## Detection Prevalence   0.2865   0.1925   0.1744   0.1637   0.1830
     ## Balanced Accuracy      0.9986   0.9933   0.9956   0.9964   0.9979
 
-The cross validation accuracy is 99.5% and the out-of-sample error is therefore 0.5% so our model performs rather good.
+The cross validation accuracy is &gt;95% and the out-of-sample error is therefore very low so our model is performing very well
 
-Apply to final test set
------------------------
+Apply predictions to final test set
+-----------------------------------
 
 Finally, we apply our model to the final test data. Upon submission all predictions were correct!
 
 ``` r
-ptest <- predict(rfModel, test)
-ptest
+predictTestSet <- predict(RdmForstModel, tstData)
+predictTestSet
 ```
 
     ##  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
@@ -213,7 +212,7 @@ ptest
 We then save the output to files according to instructions and post it to the submission page.
 
 ``` r
-answers <- as.vector(ptest)
+answers <- as.vector(predictTestSet)
 
 pml_write_files = function(x) {
     n = length(x)
